@@ -32,6 +32,7 @@ This code is creating a container with a 100% width (will match parent width) an
    resultId?: string;
    prefilledVariables?: Record<string, unknown>;
    apiHost?: string;
+   wsHost?: string;
    font?:
      | string
      | {
@@ -143,7 +144,6 @@ Here is an example:
 
   Typebot.initPopup({
     typebot: 'my-typebot',
-    apiHost: 'http://localhost:3001',
     autoShowDelay: 3000,
   })
 </script>
@@ -161,6 +161,7 @@ This code will automatically trigger the popup window after 3 seconds.
    resultId?: string;
    prefilledVariables?: Record<string, unknown>;
    apiHost?: string;
+   wsHost?: string;
    font?:
      | string
      | {
@@ -277,6 +278,7 @@ This code will show the bubble and let a preview message appear after 5 seconds.
    resultId?: string;
    prefilledVariables?: Record<string, unknown>;
    apiHost?: string;
+   wsHost?: string;
    font?:
      | string
      | {
@@ -396,6 +398,7 @@ Here are the commands you can use to trigger your embedded typebot:
   For more information, check out [Additional configuration](#additional-configuration).
 
 - `Typebot.setInputValue(...)`: Set the value in the currently displayed input.
+- `Typebot.sendCommand(...)`: Send a [command](/editor/events/command) to the bot.
 
 You can bind these commands on a button element, for example:
 

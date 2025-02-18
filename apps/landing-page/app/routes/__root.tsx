@@ -1,4 +1,5 @@
 import css from "@/assets/globals.css?url";
+import { Header } from "@/components/Header";
 import { NotFound } from "@/components/NotFound";
 import { Footer } from "@/components/footer/Footer";
 import { TanStackRouterDevtools } from "@/lib/router-dev-tool";
@@ -10,7 +11,6 @@ import {
 } from "@tanstack/react-router";
 import { Meta, Scripts } from "@tanstack/start";
 import { z } from "@typebot.io/zod";
-import { Header } from "app/components/Header";
 import { Suspense } from "react";
 
 export const Route = createRootRoute({
@@ -64,17 +64,6 @@ function RootComponent() {
     <html lang="en">
       <head>
         <Meta />
-        {import.meta.env.DEV && (
-          <script
-            type="module"
-            dangerouslySetInnerHTML={{
-              __html: `import RefreshRuntime from "/_build/@react-refresh";
-RefreshRuntime.injectIntoGlobalHook(window)
-window.$RefreshReg$ = () => {}
-window.$RefreshSig$ = () => (type) => type`,
-            }}
-          />
-        )}
       </head>
       <body>
         <div className="flex flex-col items-stretch">

@@ -1,6 +1,6 @@
-import { useUser } from "@/features/account/hooks/useUser";
+import { useUser } from "@/features/user/hooks/useUser";
 import { useWorkspace } from "@/features/workspace/WorkspaceProvider";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "@/lib/toast";
 import { trpc } from "@/lib/trpc";
 import {
   Button,
@@ -26,12 +26,12 @@ export const SmtpUpdateModalContent = ({ credentialsId, onUpdate }: Props) => {
   const { user } = useUser();
   const { workspace } = useWorkspace();
   const [isCreating, setIsCreating] = useState(false);
-  const { showToast } = useToast();
   const [smtpConfig, setSmtpConfig] = useState<SmtpCredentials["data"]>();
 
   const { data: existingCredentials } =
     trpc.credentials.getCredentials.useQuery(
       {
+        scope: "workspace",
         workspaceId: workspace!.id,
         credentialsId: credentialsId,
       },
@@ -48,9 +48,8 @@ export const SmtpUpdateModalContent = ({ credentialsId, onUpdate }: Props) => {
   const { mutate } = trpc.credentials.updateCredentials.useMutation({
     onSettled: () => setIsCreating(false),
     onError: (err) => {
-      showToast({
+      toast({
         description: err.message,
-        status: "error",
       });
     },
     onSuccess: () => {
@@ -68,8 +67,7 @@ export const SmtpUpdateModalContent = ({ credentialsId, onUpdate }: Props) => {
     );
     if (testSmtpError) {
       setIsCreating(false);
-      return showToast({
-        title: "Invalid configuration",
+      toast({
         description: "We couldn't send the test email with your configuration",
       });
     }
@@ -79,8 +77,9 @@ export const SmtpUpdateModalContent = ({ credentialsId, onUpdate }: Props) => {
         data: smtpConfig,
         name: smtpConfig.from.email as string,
         type: "smtp",
-        workspaceId: workspace.id,
       },
+      scope: "workspace",
+      workspaceId: workspace.id,
     });
   };
   return (

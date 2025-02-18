@@ -1,16 +1,11 @@
 import { isWriteTypebotForbidden } from "@/features/typebot/helpers/isWriteTypebotForbidden";
 import { authenticatedProcedure } from "@/helpers/server/trpc";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createMistral } from "@ai-sdk/mistral";
-import { createOpenAI } from "@ai-sdk/openai";
 import { TRPCError } from "@trpc/server";
 import { decrypt } from "@typebot.io/credentials/decrypt";
-import { getCredentials } from "@typebot.io/credentials/getCredentials";
+import { forgedBlocks } from "@typebot.io/forge-repository/definitions";
 import prisma from "@typebot.io/prisma";
-import {
-  type aiProviders,
-  workspaceSchema,
-} from "@typebot.io/workspaces/schemas";
+import { defaultGroupTitleGenPrompt } from "@typebot.io/schemas/features/user/constants";
+import { groupTitlesAutoGenerationSchema } from "@typebot.io/schemas/features/user/schema";
 import { z } from "@typebot.io/zod";
 import { generateObject } from "ai";
 
@@ -20,12 +15,14 @@ export const generateGroupTitle = authenticatedProcedure
       credentialsId: z.string(),
       typebotId: z.string(),
       groupContent: z.string(),
+      model: z.string(),
+      prompt: z.string().optional(),
     }),
   )
   .output(z.object({ title: z.string() }))
   .mutation(
     async ({
-      input: { credentialsId, typebotId, groupContent },
+      input: { credentialsId, typebotId, groupContent, model, prompt },
       ctx: { user },
     }) => {
       const typebot = await prisma.typebot.findUnique({
@@ -39,7 +36,6 @@ export const generateGroupTitle = authenticatedProcedure
               id: true,
               isPastDue: true,
               isSuspended: true,
-              settings: true,
               members: {
                 select: {
                   userId: true,
@@ -63,14 +59,13 @@ export const generateGroupTitle = authenticatedProcedure
           message: "Typebot not found",
         });
 
-      const groupTitlesAutoGeneration = workspaceSchema.shape.settings.parse(
-        typebot.workspace.settings,
-      )?.groupTitlesAutoGeneration;
-
+      const groupTitlesAutoGeneration = groupTitlesAutoGenerationSchema.parse(
+        user.groupTitlesAutoGeneration,
+      );
       if (
-        !groupTitlesAutoGeneration?.isEnabled ||
-        !groupTitlesAutoGeneration?.provider ||
-        !groupTitlesAutoGeneration?.credentialsId
+        !groupTitlesAutoGeneration.isEnabled ||
+        !groupTitlesAutoGeneration.provider ||
+        !groupTitlesAutoGeneration.credentialsId
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -78,10 +73,16 @@ export const generateGroupTitle = authenticatedProcedure
         });
       }
 
-      const credentials = await getCredentials(
-        credentialsId,
-        typebot.workspace.id,
-      );
+      const credentials = await prisma.userCredentials.findUnique({
+        where: {
+          id: credentialsId,
+          userId: user.id,
+        },
+        select: {
+          data: true,
+          iv: true,
+        },
+      });
 
       if (!credentials)
         throw new TRPCError({
@@ -92,21 +93,42 @@ export const generateGroupTitle = authenticatedProcedure
       const credentialsData = await decrypt(credentials.data, credentials.iv);
       const apiKey = (credentialsData as { apiKey: string }).apiKey;
 
+      const blockDef =
+        forgedBlocks[
+          groupTitlesAutoGeneration.provider as unknown as keyof typeof forgedBlocks
+        ];
+      if (!blockDef)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Provider not found",
+        });
+      const action = blockDef.actions.find((a) => a.aiGenerate);
+      if (!action)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Provider does not support AI generate",
+        });
+      const aiModel = action?.aiGenerate?.getModel?.({
+        credentials: {
+          apiKey,
+        },
+        model,
+      });
+      if (!aiModel)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Model not found",
+        });
       const {
         object: { title },
       } = await generateObject({
-        model: parseSmallModel({
-          apiKey,
-          provider: groupTitlesAutoGeneration.provider,
-        }),
+        model: aiModel,
         schema: z.object({
           title: z.string(),
         }),
-        prompt: `You will be given a group of blocks in <group>. This group is part of a chatbot scenario titled "${typebot.name}". Generate a short and concise title for that group. For example: "Introduction", "Menu", "Goodbye", "Collect name".
-        <group>
-        ${groupContent}
-        </group>
-        `,
+        prompt: (prompt ?? defaultGroupTitleGenPrompt)
+          .replace("[[typebotName]]", typebot.name)
+          .replace("[[groupContent]]", groupContent),
       });
 
       return {
@@ -114,38 +136,3 @@ export const generateGroupTitle = authenticatedProcedure
       };
     },
   );
-
-const parseSmallModel = ({
-  provider,
-  apiKey,
-}: {
-  provider: (typeof aiProviders)[number];
-  apiKey: string;
-}) => {
-  switch (provider) {
-    case "mistral": {
-      return createMistral({
-        apiKey,
-      })("mistral-small-latest");
-    }
-    case "anthropic": {
-      return createAnthropic({
-        apiKey,
-      })("claude-3-haiku-20240307");
-    }
-    case "openai": {
-      return createOpenAI({
-        apiKey,
-        compatibility: "strict",
-      })("gpt-4o-mini");
-    }
-    case "groq":
-    case "open-router":
-    case "together-ai": {
-      return createOpenAI({
-        apiKey,
-        compatibility: "compatible",
-      })("gpt-4o-mini");
-    }
-  }
-};

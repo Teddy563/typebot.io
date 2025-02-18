@@ -201,6 +201,7 @@ export const ZodFieldLayout = ({
             options={blockOptions}
             blockDef={blockDef}
             label={layout.label}
+            credentialsScope="workspace"
             helperText={
               layout?.helperText ? (
                 <Markdown components={mdComponents}>
@@ -277,6 +278,7 @@ export const ZodFieldLayout = ({
             onChange={onDataChange}
             width={width}
             debounceTimeout={layout?.isDebounceDisabled ? 0 : undefined}
+            withLineNumbers={true}
           />
         );
       return (

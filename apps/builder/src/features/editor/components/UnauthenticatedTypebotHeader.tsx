@@ -1,7 +1,7 @@
 import { EmojiOrImageIcon } from "@/components/EmojiOrImageIcon";
 import { TypebotLogo } from "@/components/TypebotLogo";
 import { CopyIcon, PlayIcon } from "@/components/icons";
-import { useUser } from "@/features/account/hooks/useUser";
+import { useUser } from "@/features/user/hooks/useUser";
 import {
   Button,
   Divider,
@@ -24,16 +24,10 @@ export const GuestTypebotHeader = () => {
   const router = useRouter();
   const { user } = useUser();
   const { typebot, save } = useTypebot();
-  const {
-    setRightPanel,
-    rightPanel,
-    setStartPreviewAtGroup,
-    setStartPreviewAtEvent,
-  } = useEditor();
+  const { setRightPanel, rightPanel, setStartPreviewFrom } = useEditor();
 
   const handlePreviewClick = async () => {
-    setStartPreviewAtGroup(undefined);
-    setStartPreviewAtEvent(undefined);
+    setStartPreviewFrom(undefined);
     save().then();
     setRightPanel(RightPanel.PREVIEW);
   };
